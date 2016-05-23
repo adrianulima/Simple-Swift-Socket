@@ -51,8 +51,8 @@ class Client: NSObject, NSNetServiceBrowserDelegate, NSNetServiceDelegate, GCDAs
         return false
     }
     
-    func sendMessage(userInfo: NSDictionary) {
-        let dictData:NSData = NSKeyedArchiver.archivedDataWithRootObject(userInfo)
+    func send(message: NSDictionary) {
+        let dictData:NSData = NSKeyedArchiver.archivedDataWithRootObject(message)
         socket?.writeData(dictData, withTimeout: -1.0, tag: 0)
     }
     
