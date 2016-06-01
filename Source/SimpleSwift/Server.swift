@@ -12,6 +12,7 @@ import Foundation
     optional func server(server: Server, didReceiveMessage message: [String : AnyObject])
     optional func server(server: Server, didReceiveTextMessage text: String)
     optional func server(server: Server, didReceiveMessageData messageData: NSData)
+    optional func server(server: Server, didStartListenning port: UInt16)
     optional func server(server: Server, didPublishService service: NSNetService)
     optional func server(server: Server, didAcceptNewUser socket: GCDAsyncSocket)
     optional func server(server: Server, didDisconnectedUser socket: GCDAsyncSocket, withError err: NSError!)
@@ -20,23 +21,33 @@ import Foundation
 class Server: NSObject, NSNetServiceDelegate, NSNetServiceBrowserDelegate, GCDAsyncSocketDelegate {
     
     //TODO: check if we can use timeout different of -1.0
-    //TODO: implement header
-    //TODO: test p2p btw sockets
+    //TODO: implement header messages
     
     var delegate: ServerDelegate?
     private(set) var service: NSNetService?
     private(set) var socket: GCDAsyncSocket?
     private(set) var connectedSockets : [GCDAsyncSocket]?
     
+    func listen(onPort port: UInt16) {
+        createSocketAndListen(onPort: port)
+    }
+    
     func startService(name: String, onPort port: UInt16, inDomain domain: String = "local.") {
+        createSocketAndListen(onPort: port, name: name, inDomain: domain)
+    }
+    
+    private func createSocketAndListen(onPort port: UInt16, name: String? = nil, inDomain domain: String? = nil) {
         self.socket = GCDAsyncSocket(delegate: self, delegateQueue: dispatch_get_main_queue())
         do {
             try self.socket?.acceptOnPort(port)
-            self.service = NSNetService(domain: domain, type: "_\(name)._tcp.", name: name, port: Int32(port))
-            self.service?.delegate = self
-            self.service?.publish()
+            self.delegate?.server?(self, didStartListenning: port)
             self.connectedSockets = []
-            self.delegate?.server?(self, didPublishService: self.service!)
+            if name != nil && domain != nil {
+                self.service = NSNetService(domain: domain!, type: "_\(name)._tcp.", name: name!, port: Int32(port))
+                self.service?.delegate = self
+                self.service?.publish()
+                self.delegate?.server?(self, didPublishService: self.service!)
+            }
         } catch let error as NSError {
             print("Failed to create server socket. Error \(error)")
         }
@@ -52,33 +63,33 @@ class Server: NSObject, NSNetServiceDelegate, NSNetServiceBrowserDelegate, GCDAs
         self.connectedSockets = nil
     }
     
-    func send(clientSocket: GCDAsyncSocket, messageData: NSData) {
-        clientSocket.writeData(messageData, withTimeout: -1.0, tag: 0)
+    func send(clientSocket: GCDAsyncSocket, messageData: NSData, withTimeout timeout: NSTimeInterval = -1.0) {
+        clientSocket.writeData(messageData, withTimeout: timeout, tag: 0)
     }
-    func send(clientSocket: GCDAsyncSocket, message: [String : AnyObject]) {
+    func send(clientSocket: GCDAsyncSocket, message: [String : AnyObject], withTimeout timeout: NSTimeInterval = -1.0) {
         if let data:NSData = NSKeyedArchiver.archivedDataWithRootObject(message) {
-            send(clientSocket, messageData: data)
+            send(clientSocket, messageData: data, withTimeout: timeout)
         }
     }
-    func send(clientSocket: GCDAsyncSocket, textMessage: String) {
+    func send(clientSocket: GCDAsyncSocket, textMessage: String, withTimeout timeout: NSTimeInterval = -1.0) {
         if let data = textMessage.dataUsingEncoding(NSUTF8StringEncoding) {
-            send(clientSocket, messageData: data)
+            send(clientSocket, messageData: data, withTimeout: timeout)
         }
     }
     
-    func broadcastData(messageData: NSData) {
+    func broadcast(messageData messageData: NSData, withTimeout timeout: NSTimeInterval = -1.0) {
         for client in connectedSockets! {
-            send(client, messageData: messageData)
+            send(client, messageData: messageData, withTimeout: timeout)
         }
     }
-    func broadcast(message: [String : AnyObject]) {
+    func broadcast(message message: [String : AnyObject], withTimeout timeout: NSTimeInterval = -1.0) {
         if let data:NSData = NSKeyedArchiver.archivedDataWithRootObject(message) {
-            broadcastData(data)
+            broadcast(messageData: data, withTimeout: timeout)
         }
     }
-    func broadcastText(textMessage: String) {
+    func broadcast(textMessage textMessage: String, withTimeout timeout: NSTimeInterval = -1.0) {
         if let data = textMessage.dataUsingEncoding(NSUTF8StringEncoding) {
-            broadcastData(data)
+            broadcast(messageData: data, withTimeout: timeout)
         }
     }
     
