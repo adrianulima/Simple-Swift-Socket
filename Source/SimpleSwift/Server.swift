@@ -1,17 +1,13 @@
 //
-//  Server.swift
-//  TvOSConnectivity
-//
-//  Created by Adriano Lima on 5/12/16.
-//
+//  Created by Adriano Lima in 2016.
 //
 
 import Foundation
 
 @objc protocol ServerDelegate {
-    optional func server(server: Server, didReceiveMessage message: [String : AnyObject])
-    optional func server(server: Server, didReceiveTextMessage text: String)
-    optional func server(server: Server, didReceiveMessageData messageData: NSData)
+    optional func server(server: Server, didReceiveMessage dict: [String : AnyObject])
+    optional func server(server: Server, didReceiveText string: String)
+    optional func server(server: Server, didReceiveMessageData data: NSData)
     optional func server(server: Server, didStartListenning port: UInt16)
     optional func server(server: Server, didPublishService service: NSNetService)
     optional func server(server: Server, didAcceptNewUser socket: GCDAsyncSocket)
@@ -66,29 +62,33 @@ class Server: NSObject, NSNetServiceDelegate, NSNetServiceBrowserDelegate, GCDAs
     func send(clientSocket: GCDAsyncSocket, messageData: NSData, withTimeout timeout: NSTimeInterval = -1.0) {
         clientSocket.writeData(messageData, withTimeout: timeout, tag: 0)
     }
+    
     func send(clientSocket: GCDAsyncSocket, message: [String : AnyObject], withTimeout timeout: NSTimeInterval = -1.0) {
         if let data:NSData = NSKeyedArchiver.archivedDataWithRootObject(message) {
             send(clientSocket, messageData: data, withTimeout: timeout)
         }
     }
-    func send(clientSocket: GCDAsyncSocket, textMessage: String, withTimeout timeout: NSTimeInterval = -1.0) {
-        if let data = textMessage.dataUsingEncoding(NSUTF8StringEncoding) {
+    
+    func send(clientSocket: GCDAsyncSocket, text: String, withTimeout timeout: NSTimeInterval = -1.0) {
+        if let data = text.dataUsingEncoding(NSUTF8StringEncoding) {
             send(clientSocket, messageData: data, withTimeout: timeout)
         }
     }
     
-    func broadcast(messageData messageData: NSData, withTimeout timeout: NSTimeInterval = -1.0) {
+    func broadcast(messageData data: NSData, withTimeout timeout: NSTimeInterval = -1.0) {
         for client in connectedSockets! {
-            send(client, messageData: messageData, withTimeout: timeout)
+            send(client, messageData: data, withTimeout: timeout)
         }
     }
-    func broadcast(message message: [String : AnyObject], withTimeout timeout: NSTimeInterval = -1.0) {
-        if let data:NSData = NSKeyedArchiver.archivedDataWithRootObject(message) {
+    
+    func broadcast(message dict: [String : AnyObject], withTimeout timeout: NSTimeInterval = -1.0) {
+        if let data:NSData = NSKeyedArchiver.archivedDataWithRootObject(dict) {
             broadcast(messageData: data, withTimeout: timeout)
         }
     }
-    func broadcast(textMessage textMessage: String, withTimeout timeout: NSTimeInterval = -1.0) {
-        if let data = textMessage.dataUsingEncoding(NSUTF8StringEncoding) {
+    
+    func broadcast(text string: String, withTimeout timeout: NSTimeInterval = -1.0) {
+        if let data = string.dataUsingEncoding(NSUTF8StringEncoding) {
             broadcast(messageData: data, withTimeout: timeout)
         }
     }
@@ -126,7 +126,7 @@ class Server: NSObject, NSNetServiceDelegate, NSNetServiceBrowserDelegate, GCDAs
             delegate?.server?(self, didReceiveMessage: dict)
         }
         if let text = String(data: data, encoding: NSUTF8StringEncoding) {
-            delegate?.server?(self, didReceiveTextMessage: text)
+            delegate?.server?(self, didReceiveText: text)
         }
         sock.readDataWithTimeout(-1.0, tag: 0)
     }

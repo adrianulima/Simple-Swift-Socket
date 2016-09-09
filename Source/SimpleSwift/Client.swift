@@ -1,17 +1,13 @@
 //
-//  Client.swift
-//  TvOSConnectivity
-//
-//  Created by Adriano Lima on 5/12/16.
-//
+//  Created by Adriano Lima in 2016.
 //
 
 import Foundation
 
 @objc protocol ClientDelegate {
-    optional func client(client: Client, didReceiveMessage message: [String : AnyObject])
-    optional func client(client: Client, didReceiveTextMessage text: String)
-    optional func client(client: Client, didReceiveMessageData messageData: NSData)
+    optional func client(client: Client, didReceiveMessage dict: [String : AnyObject])
+    optional func client(client: Client, didReceiveText string: String)
+    optional func client(client: Client, didReceiveMessageData data: NSData)
     optional func client(client: Client, didFoundService service: NSNetService, moreComing: Bool)
     optional func client(client: Client, didResolveAddress service: NSNetService)
     optional func client(client: Client, didConnected socket: GCDAsyncSocket, host: String!, port: UInt16)
@@ -51,9 +47,20 @@ class Client: NSObject, NSNetServiceBrowserDelegate, NSNetServiceDelegate, GCDAs
         return false
     }
     
-    func send(message: NSDictionary) {
-        let dictData:NSData = NSKeyedArchiver.archivedDataWithRootObject(message)
-        socket?.writeData(dictData, withTimeout: -1.0, tag: 0)
+    func send(messageData data: NSData) {
+        socket?.writeData(data, withTimeout: -1.0, tag: 0)
+    }
+    
+    func send(message dict: NSDictionary) {
+        if let data:NSData = NSKeyedArchiver.archivedDataWithRootObject(dict) {
+            send(messageData: data)
+        }
+    }
+    
+    func send(text string: String) {
+        if let data = string.dataUsingEncoding(NSUTF8StringEncoding) {
+            send(messageData: data)
+        }
     }
     
     func findService(name: String, autoConnectFirst autoConnect: Bool = true, inDomain domain: String = "local.") {
@@ -119,8 +126,9 @@ class Client: NSObject, NSNetServiceBrowserDelegate, NSNetServiceDelegate, GCDAs
             delegate?.client?(self, didReceiveMessage: dict)
         }
         if let text: String = String(data: data, encoding: NSUTF8StringEncoding) {
-            delegate?.client?(self, didReceiveTextMessage: text)
+            delegate?.client?(self, didReceiveText: text)
         }
+        socket?.readDataWithTimeout(-1.0, tag: 0)
     }
     
     func socketDidCloseReadStream(sock: GCDAsyncSocket!) {
